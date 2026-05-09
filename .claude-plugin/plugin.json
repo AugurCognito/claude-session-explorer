@@ -1,0 +1,10 @@
+{
+  "name": "claude-session-explorer",
+  "version": "0.1.0",
+  "description": "Session history explorer — standup summaries, project context, token tracking, file hotspots, and decision archaeology for Claude Code",
+  "author": {
+    "name": "Aniket Singh"
+  },
+  "repository": "https://github.com/AugurCognito/claude-session-explorer",
+  "license": "MIT"
+}
