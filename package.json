@@ -1,6 +1,6 @@
 {
   "name": "claude-session-explorer",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Deterministic CLI for extracting structured data from Claude Code session history",
   "type": "module",
   "packageManager": "pnpm@10.20.0",
