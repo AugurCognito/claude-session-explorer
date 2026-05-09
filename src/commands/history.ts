@@ -1,6 +1,6 @@
-import type { GlobalOptions } from "../types.js";
-import { readHistory } from "../reader.js";
-import { writeJson, writeTable, formatTimestamp } from "../output.js";
+import { formatTimestamp, writeJson, writeTable } from '../output.js';
+import { readHistory } from '../reader.js';
+import type { GlobalOptions } from '../types.js';
 
 interface HistoryOptions extends GlobalOptions {
   search?: string;
@@ -25,12 +25,8 @@ export async function history(opts: HistoryOptions): Promise<void> {
 
   if (opts.pretty) {
     writeTable(
-      ["Timestamp", "Project", "Prompt"],
-      limited.map((e) => [
-        formatTimestamp(e.timestamp),
-        e.project,
-        e.prompt.slice(0, 80),
-      ]),
+      ['Timestamp', 'Project', 'Prompt'],
+      limited.map((e) => [formatTimestamp(e.timestamp), e.project, e.prompt.slice(0, 80)]),
     );
   } else {
     writeJson(limited);

@@ -1,6 +1,6 @@
-import type { GlobalOptions } from "../types.js";
-import { findConversationFile, readJsonlFile } from "../reader.js";
-import { writeJson, writeError } from "../output.js";
+import { writeError, writeJson } from '../output.js';
+import { findConversationFile, readJsonlFile } from '../reader.js';
+import type { GlobalOptions } from '../types.js';
 
 interface ShowOptions extends GlobalOptions {
   messages?: boolean;
@@ -24,7 +24,7 @@ export async function show(sessionId: string, opts: ShowOptions): Promise<void> 
 
   if (opts.raw) {
     for (const entry of entries) {
-      process.stdout.write(JSON.stringify(entry) + "\n");
+      process.stdout.write(`${JSON.stringify(entry)}\n`);
     }
     return;
   }

@@ -1,6 +1,6 @@
-import type { GlobalOptions } from "../types.js";
-import { listSessionFiles, readSessionMeta } from "../reader.js";
-import { writeJson, writeTable } from "../output.js";
+import { writeJson, writeTable } from '../output.js';
+import { listSessionFiles, readSessionMeta } from '../reader.js';
+import type { GlobalOptions } from '../types.js';
 
 interface StatsOptions extends GlobalOptions {
   project?: string;
@@ -21,7 +21,8 @@ export async function stats(opts: StatsOptions): Promise<void> {
 
     sessionCount++;
     projectCounts.set(meta.cwd, (projectCounts.get(meta.cwd) ?? 0) + 1);
-    hourCounts[new Date(meta.startedAt).getHours()]++;
+    const hour = new Date(meta.startedAt).getHours();
+    hourCounts[hour] = (hourCounts[hour] ?? 0) + 1;
   }
 
   const result = {
@@ -34,10 +35,10 @@ export async function stats(opts: StatsOptions): Promise<void> {
 
   if (opts.pretty) {
     writeTable(
-      ["Metric", "Value"],
+      ['Metric', 'Value'],
       [
-        ["Sessions", String(sessionCount)],
-        ["Projects", String(projectCounts.size)],
+        ['Sessions', String(sessionCount)],
+        ['Projects', String(projectCounts.size)],
       ],
     );
   } else {

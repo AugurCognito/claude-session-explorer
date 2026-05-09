@@ -1,8 +1,8 @@
-import chalk from "chalk";
-import Table from "cli-table3";
+import chalk from 'chalk';
+import Table from 'cli-table3';
 
 export function writeJson(data: unknown): void {
-  process.stdout.write(JSON.stringify(data, null, 2) + "\n");
+  process.stdout.write(`${JSON.stringify(data, null, 2)}\n`);
 }
 
 export function writeTable(headers: string[], rows: string[][]): void {
@@ -15,7 +15,7 @@ export function writeTable(headers: string[], rows: string[][]): void {
     table.push(row);
   }
 
-  process.stdout.write(table.toString() + "\n");
+  process.stdout.write(`${table.toString()}\n`);
 }
 
 export function writeError(message: string): void {
@@ -29,7 +29,10 @@ export function writeVerbose(message: string, verbose: boolean): void {
 }
 
 export function formatTimestamp(ms: number): string {
-  return new Date(ms).toISOString().replace("T", " ").replace(/\.\d+Z$/, "");
+  return new Date(ms)
+    .toISOString()
+    .replace('T', ' ')
+    .replace(/\.\d+Z$/, '');
 }
 
 export function formatDuration(ms: number): string {

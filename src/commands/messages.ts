@@ -1,6 +1,6 @@
-import type { GlobalOptions } from "../types.js";
-import { findConversationFile, readJsonlFile } from "../reader.js";
-import { writeJson, writeError } from "../output.js";
+import { writeError, writeJson } from '../output.js';
+import { findConversationFile, readJsonlFile } from '../reader.js';
+import type { GlobalOptions } from '../types.js';
 
 interface MessagesOptions extends GlobalOptions {
   user?: boolean;
@@ -18,10 +18,7 @@ interface MessageOutput {
   content: string;
 }
 
-export async function messages(
-  sessionId: string,
-  opts: MessagesOptions,
-): Promise<void> {
+export async function messages(sessionId: string, opts: MessagesOptions): Promise<void> {
   const file = await findConversationFile(opts.claudeDir, sessionId);
   if (!file) {
     writeError(`Session not found: ${sessionId}`);
@@ -35,12 +32,18 @@ export async function messages(
     const record = entry as Record<string, unknown>;
     const type = record.type as string;
 
-    if (type !== "user" && type !== "assistant") {
+    if (type !== 'user' && type !== 'assistant') {
       index++;
       continue;
     }
-    if (opts.user && type !== "user") { index++; continue; }
-    if (opts.assistant && type !== "assistant") { index++; continue; }
+    if (opts.user && type !== 'user') {
+      index++;
+      continue;
+    }
+    if (opts.assistant && type !== 'assistant') {
+      index++;
+      continue;
+    }
 
     const content = extractTextContent(record, opts.raw);
 
@@ -54,7 +57,7 @@ export async function messages(
   }
 
   if (opts.slice) {
-    const [start, end] = opts.slice.split(":").map(Number);
+    const [start, end] = opts.slice.split(':').map(Number);
     results = results.slice(start, end);
   } else if (opts.first) {
     results = results.slice(0, opts.first);
@@ -65,20 +68,17 @@ export async function messages(
   writeJson(results);
 }
 
-function extractTextContent(
-  record: Record<string, unknown>,
-  raw?: boolean,
-): string {
+function extractTextContent(record: Record<string, unknown>, raw?: boolean): string {
   const content = record.content;
-  if (typeof content === "string") return content;
+  if (typeof content === 'string') return content;
   if (raw) return JSON.stringify(content);
 
   if (Array.isArray(content)) {
     return (content as Record<string, unknown>[])
-      .filter((b) => b.type === "text")
+      .filter((b) => b.type === 'text')
       .map((b) => b.text as string)
-      .join("\n");
+      .join('\n');
   }
 
-  return "";
+  return '';
 }

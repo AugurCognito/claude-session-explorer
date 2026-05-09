@@ -12,14 +12,14 @@ export interface Session {
 }
 
 export interface Message {
-  type: "user" | "assistant" | "attachment" | "file-history-snapshot";
+  type: 'user' | 'assistant' | 'attachment' | 'file-history-snapshot';
   timestamp: number;
   content: string | ContentBlock[];
   usage?: TokenUsage;
 }
 
 export interface ContentBlock {
-  type: "text" | "thinking" | "tool_use" | "tool_result";
+  type: 'text' | 'thinking' | 'tool_use' | 'tool_result';
   text?: string;
   name?: string;
   input?: Record<string, unknown>;
@@ -53,7 +53,7 @@ export interface HistoryEntry {
 
 export interface FileOperation {
   filePath: string;
-  operation: "read" | "write" | "edit";
+  operation: 'read' | 'write' | 'edit';
   timestamp: number;
   messageIndex: number;
 }

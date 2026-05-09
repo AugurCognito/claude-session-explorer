@@ -1,6 +1,6 @@
-import type { GlobalOptions } from "../types.js";
-import { findConversationFile, readJsonlFile } from "../reader.js";
-import { writeJson, writeError } from "../output.js";
+import { writeError, writeJson } from '../output.js';
+import { findConversationFile, readJsonlFile } from '../reader.js';
+import type { GlobalOptions } from '../types.js';
 
 interface TokensOptions extends GlobalOptions {
   project?: string;
@@ -14,15 +14,12 @@ interface TurnTokens {
   outputTokens: number;
   cacheReadTokens: number;
   cacheCreationTokens: number;
-  model?: string;
+  model?: string | undefined;
 }
 
-export async function tokens(
-  sessionId: string | undefined,
-  opts: TokensOptions,
-): Promise<void> {
+export async function tokens(sessionId: string | undefined, opts: TokensOptions): Promise<void> {
   if (!sessionId) {
-    writeError("Session ID required (project-level aggregation not yet implemented)");
+    writeError('Session ID required (project-level aggregation not yet implemented)');
     process.exit(1);
   }
 

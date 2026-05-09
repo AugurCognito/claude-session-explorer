@@ -1,6 +1,6 @@
-import type { GlobalOptions } from "../types.js";
-import { listSessionFiles, readSessionMeta } from "../reader.js";
-import { writeJson, writeTable, formatTimestamp } from "../output.js";
+import { formatTimestamp, writeJson, writeTable } from '../output.js';
+import { listSessionFiles, readSessionMeta } from '../reader.js';
+import type { GlobalOptions, SessionMeta } from '../types.js';
 
 interface ListOptions extends GlobalOptions {
   project?: string;
@@ -15,51 +15,55 @@ interface ListOptions extends GlobalOptions {
   reverse?: boolean;
 }
 
+interface SessionRow {
+  id: string;
+  date: string;
+  project: string;
+  kind: string;
+  entrypoint: string;
+  startedAt: number;
+}
+
+function matchesFilters(meta: SessionMeta, opts: ListOptions): boolean {
+  if (opts.project && !meta.cwd.startsWith(opts.project)) return false;
+  if (opts.kind && meta.kind !== opts.kind) return false;
+  if (opts.entrypoint && meta.entrypoint !== opts.entrypoint) return false;
+  if (opts.since && meta.startedAt < new Date(opts.since).getTime()) return false;
+  if (opts.until && meta.startedAt > new Date(opts.until).getTime()) return false;
+  if (opts.today && meta.startedAt < todayStart()) return false;
+  if (opts.thisWeek && meta.startedAt < weekStart()) return false;
+  return true;
+}
+
+function todayStart(): number {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+function weekStart(): number {
+  const now = new Date();
+  const d = new Date(now);
+  d.setDate(now.getDate() - now.getDay());
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
 export async function list(opts: ListOptions): Promise<void> {
   const files = await listSessionFiles(opts.claudeDir);
-  const sessions: Array<{
-    id: string;
-    date: string;
-    project: string;
-    kind: string;
-    entrypoint: string;
-    startedAt: number;
-  }> = [];
+  const sessions: SessionRow[] = [];
 
   for (const file of files) {
     const meta = await readSessionMeta(file);
-    if (!meta) continue;
-
-    if (opts.project && !meta.cwd.startsWith(opts.project)) continue;
-    if (opts.kind && meta.kind !== opts.kind) continue;
-    if (opts.entrypoint && meta.entrypoint !== opts.entrypoint) continue;
-
-    const startedAt = meta.startedAt;
-
-    if (opts.since && startedAt < new Date(opts.since).getTime()) continue;
-    if (opts.until && startedAt > new Date(opts.until).getTime()) continue;
-
-    if (opts.today) {
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
-      if (startedAt < todayStart.getTime()) continue;
-    }
-
-    if (opts.thisWeek) {
-      const now = new Date();
-      const weekStart = new Date(now);
-      weekStart.setDate(now.getDate() - now.getDay());
-      weekStart.setHours(0, 0, 0, 0);
-      if (startedAt < weekStart.getTime()) continue;
-    }
+    if (!meta || !matchesFilters(meta, opts)) continue;
 
     sessions.push({
       id: meta.sessionId,
-      date: formatTimestamp(startedAt),
+      date: formatTimestamp(meta.startedAt),
       project: meta.cwd,
       kind: meta.kind,
       entrypoint: meta.entrypoint,
-      startedAt,
+      startedAt: meta.startedAt,
     });
   }
 
@@ -70,7 +74,7 @@ export async function list(opts: ListOptions): Promise<void> {
 
   if (opts.pretty) {
     writeTable(
-      ["ID", "Date", "Project", "Kind", "Entrypoint"],
+      ['ID', 'Date', 'Project', 'Kind', 'Entrypoint'],
       limited.map((s) => [s.id, s.date, s.project, s.kind, s.entrypoint]),
     );
   } else {

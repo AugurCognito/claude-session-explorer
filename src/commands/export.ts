@@ -1,8 +1,8 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
-import type { GlobalOptions } from "../types.js";
-import { findConversationFile, readJsonlFile } from "../reader.js";
-import { writeJson, writeError } from "../output.js";
+import { mkdir, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { writeError, writeJson } from '../output.js';
+import { findConversationFile, readJsonlFile } from '../reader.js';
+import type { GlobalOptions } from '../types.js';
 
 interface ExportOptions extends GlobalOptions {
   format: string;
@@ -15,7 +15,7 @@ export async function exportSession(
   opts: ExportOptions,
 ): Promise<void> {
   if (!sessionId) {
-    writeError("Session ID required (--all not yet implemented)");
+    writeError('Session ID required (--all not yet implemented)');
     process.exit(1);
   }
 
@@ -38,24 +38,21 @@ export async function exportSession(
   await mkdir(opts.outDir, { recursive: true });
   const outPath = join(opts.outDir, `${sessionId}.${opts.format}`);
 
-  if (opts.format === "json") {
+  if (opts.format === 'json') {
     await writeFile(outPath, JSON.stringify(entries, null, 2));
-  } else if (opts.format === "md") {
+  } else if (opts.format === 'md') {
     const md = entries
       .filter((e) => {
         const r = e as Record<string, unknown>;
-        return r.type === "user" || r.type === "assistant";
+        return r.type === 'user' || r.type === 'assistant';
       })
       .map((e) => {
         const r = e as Record<string, unknown>;
-        const role = r.type === "user" ? "User" : "Assistant";
-        const content =
-          typeof r.content === "string"
-            ? r.content
-            : JSON.stringify(r.content);
+        const role = r.type === 'user' ? 'User' : 'Assistant';
+        const content = typeof r.content === 'string' ? r.content : JSON.stringify(r.content);
         return `## ${role}\n\n${content}`;
       })
-      .join("\n\n---\n\n");
+      .join('\n\n---\n\n');
 
     await writeFile(outPath, md);
   }
