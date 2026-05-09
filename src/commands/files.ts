@@ -1,4 +1,4 @@
-import { writeError, writeJson, writeTable } from '../output.js';
+import { writeJson, writeTable } from '../output.js';
 import { findConversationFile, readJsonlFile } from '../reader.js';
 import type { FileOperation, GlobalOptions } from '../types.js';
 
@@ -14,7 +14,11 @@ const TOOL_OP_MAP: Record<string, FileOperation['operation']> = {
   Edit: 'edit',
 };
 
-function extractFileOps(blocks: Record<string, unknown>[], messageIndex: number): FileOperation[] {
+function extractFileOps(
+  blocks: Record<string, unknown>[],
+  messageIndex: number,
+  timestamp: number,
+): FileOperation[] {
   const ops: FileOperation[] = [];
 
   for (const block of blocks) {
@@ -26,23 +30,16 @@ function extractFileOps(blocks: Record<string, unknown>[], messageIndex: number)
     const input = block.input as Record<string, unknown>;
     const filePath = (input.file_path as string) ?? (input.path as string) ?? '';
 
-    ops.push({ filePath, operation, timestamp: 0, messageIndex });
+    ops.push({ filePath, operation, timestamp, messageIndex });
   }
 
   return ops;
 }
 
-function matchesFilter(op: FileOperation, opts: FilesOptions): boolean {
-  if (opts.reads && op.operation !== 'read') return false;
-  if (opts.writes && op.operation !== 'write') return false;
-  if (opts.edits && op.operation !== 'edit') return false;
-  return true;
-}
-
 export async function files(sessionId: string, opts: FilesOptions): Promise<void> {
   const file = await findConversationFile(opts.claudeDir, sessionId);
   if (!file) {
-    writeError(`Session not found: ${sessionId}`);
+    process.stderr.write(`error: session not found: ${sessionId}\n`);
     process.exit(1);
   }
 
@@ -52,11 +49,22 @@ export async function files(sessionId: string, opts: FilesOptions): Promise<void
   for await (const entry of readJsonlFile(file)) {
     const record = entry as Record<string, unknown>;
 
-    if (record.type === 'assistant' && Array.isArray(record.content)) {
-      const ops = extractFileOps(record.content as Record<string, unknown>[], messageIndex);
-      for (const op of ops) {
-        op.timestamp = (record.timestamp as number) ?? 0;
-        if (matchesFilter(op, opts)) operations.push(op);
+    if (record.type === 'assistant') {
+      const message = record.message as Record<string, unknown> | undefined;
+      const content = message?.content;
+
+      if (Array.isArray(content)) {
+        const ops = extractFileOps(
+          content as Record<string, unknown>[],
+          messageIndex,
+          (record.timestamp as number) ?? 0,
+        );
+        for (const op of ops) {
+          if (opts.reads && op.operation !== 'read') continue;
+          if (opts.writes && op.operation !== 'write') continue;
+          if (opts.edits && op.operation !== 'edit') continue;
+          operations.push(op);
+        }
       }
     }
     messageIndex++;

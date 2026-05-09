@@ -10,14 +10,24 @@ interface HistoryOptions extends GlobalOptions {
 }
 
 export async function history(opts: HistoryOptions): Promise<void> {
-  const entries: Array<{ timestamp: number; project: string; prompt: string }> = [];
+  const entries: Array<{
+    display: string;
+    timestamp: number;
+    project: string;
+    sessionId: string | undefined;
+  }> = [];
 
   for await (const entry of readHistory(opts.claudeDir)) {
-    if (opts.search && !entry.prompt.includes(opts.search)) continue;
+    if (opts.search && !entry.display.includes(opts.search)) continue;
     if (opts.project && !entry.project.startsWith(opts.project)) continue;
     if (opts.since && entry.timestamp < new Date(opts.since).getTime()) continue;
 
-    entries.push(entry);
+    entries.push({
+      display: entry.display,
+      timestamp: entry.timestamp,
+      project: entry.project,
+      sessionId: entry.sessionId,
+    });
   }
 
   entries.sort((a, b) => b.timestamp - a.timestamp);
@@ -26,7 +36,7 @@ export async function history(opts: HistoryOptions): Promise<void> {
   if (opts.pretty) {
     writeTable(
       ['Timestamp', 'Project', 'Prompt'],
-      limited.map((e) => [formatTimestamp(e.timestamp), e.project, e.prompt.slice(0, 80)]),
+      limited.map((e) => [formatTimestamp(e.timestamp), e.project, e.display.slice(0, 80)]),
     );
   } else {
     writeJson(limited);

@@ -37,6 +37,7 @@ program
   .option('--since <date>', 'filter by start date')
   .option('--until <date>', 'filter by end date')
   .option('--today', "shorthand for today's sessions")
+  .option('--yesterday', "shorthand for yesterday's sessions")
   .option('--this-week', 'shorthand for current week')
   .option('--kind <kind>', 'filter by session kind')
   .option('--entrypoint <ep>', 'filter by entrypoint (cli/ide/web)')

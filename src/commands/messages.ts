@@ -1,4 +1,4 @@
-import { writeError, writeJson } from '../output.js';
+import { writeJson } from '../output.js';
 import { findConversationFile, readJsonlFile } from '../reader.js';
 import type { GlobalOptions } from '../types.js';
 
@@ -14,14 +14,29 @@ interface MessagesOptions extends GlobalOptions {
 interface MessageOutput {
   index: number;
   type: string;
-  timestamp: number;
+  timestamp: string;
   content: string;
+}
+
+function extractText(content: unknown, raw?: boolean): string {
+  if (typeof content === 'string') return content;
+  if (raw) return JSON.stringify(content);
+
+  if (Array.isArray(content)) {
+    return (content as Record<string, unknown>[])
+      .filter((b) => b.type === 'text')
+      .map((b) => b.text as string)
+      .filter(Boolean)
+      .join('\n');
+  }
+
+  return '';
 }
 
 export async function messages(sessionId: string, opts: MessagesOptions): Promise<void> {
   const file = await findConversationFile(opts.claudeDir, sessionId);
   if (!file) {
-    writeError(`Session not found: ${sessionId}`);
+    process.stderr.write(`error: session not found: ${sessionId}\n`);
     process.exit(1);
   }
 
@@ -45,14 +60,16 @@ export async function messages(sessionId: string, opts: MessagesOptions): Promis
       continue;
     }
 
-    const content = extractTextContent(record, opts.raw);
+    const message = record.message as Record<string, unknown> | undefined;
+    if (!message) {
+      index++;
+      continue;
+    }
 
-    results.push({
-      index,
-      type,
-      timestamp: (record.timestamp as number) ?? 0,
-      content,
-    });
+    const content = extractText(message.content, opts.raw);
+    const timestamp = (record.timestamp as string) ?? '';
+
+    results.push({ index, type, timestamp, content });
     index++;
   }
 
@@ -66,19 +83,4 @@ export async function messages(sessionId: string, opts: MessagesOptions): Promis
   }
 
   writeJson(results);
-}
-
-function extractTextContent(record: Record<string, unknown>, raw?: boolean): string {
-  const content = record.content;
-  if (typeof content === 'string') return content;
-  if (raw) return JSON.stringify(content);
-
-  if (Array.isArray(content)) {
-    return (content as Record<string, unknown>[])
-      .filter((b) => b.type === 'text')
-      .map((b) => b.text as string)
-      .join('\n');
-  }
-
-  return '';
 }

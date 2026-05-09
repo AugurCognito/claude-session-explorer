@@ -48,7 +48,8 @@ export interface SessionMeta {
 export interface HistoryEntry {
   timestamp: number;
   project: string;
-  prompt: string;
+  display: string;
+  sessionId?: string;
 }
 
 export interface FileOperation {

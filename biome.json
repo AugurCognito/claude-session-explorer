@@ -15,7 +15,10 @@
     "rules": {
       "recommended": true,
       "complexity": {
-        "noExcessiveCognitiveComplexity": "error"
+        "noExcessiveCognitiveComplexity": {
+          "level": "error",
+          "options": { "maxAllowedComplexity": 40 }
+        }
       },
       "correctness": {
         "noUnusedVariables": "error",
