@@ -10,10 +10,15 @@ export async function* readJsonlFile(path: string): AsyncGenerator<unknown> {
   const stream = createReadStream(path, 'utf-8');
   const rl = createInterface({ input: stream, crlfDelay: Infinity });
 
+  let lineNum = 0;
   for await (const line of rl) {
+    lineNum++;
     const trimmed = line.trim();
-    if (trimmed) {
+    if (!trimmed) continue;
+    try {
       yield JSON.parse(trimmed);
+    } catch {
+      process.stderr.write(`warning: invalid JSONL at ${path}:${lineNum}\n`);
     }
   }
 }

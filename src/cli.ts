@@ -132,4 +132,4 @@ program
   .option('--project <path>', 'export project sessions')
   .action((id, opts) => exportSession(id, { ...globals(), ...opts }));
 
-program.parse();
+program.parseAsync();
