@@ -1,6 +1,10 @@
+import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { Command } from 'commander';
+
+const pkg = JSON.parse(readFileSync(join(import.meta.dirname, '..', 'package.json'), 'utf-8'));
+
 import { exportSession } from './commands/export.js';
 import { files } from './commands/files.js';
 import { history } from './commands/history.js';
@@ -17,7 +21,7 @@ const program = new Command();
 program
   .name('cse')
   .description('Deterministic CLI for Claude Code session history')
-  .version('0.1.0')
+  .version(pkg.version)
   .option('--claude-dir <path>', 'override ~/.claude location', join(homedir(), '.claude'))
   .option('--out-dir <path>', 'override output directory', '.cse')
   .option('--stdout', 'write to stdout instead of file')
