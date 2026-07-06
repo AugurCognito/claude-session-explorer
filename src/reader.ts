@@ -1,13 +1,10 @@
 import { createReadStream } from 'node:fs';
-import { readdir, readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { readdir } from 'node:fs/promises';
+import { basename, join } from 'node:path';
 import { createInterface } from 'node:readline';
-import type { HistoryEntry, SessionMeta } from './types.js';
+import type { HistoryEntry } from './types.js';
 
-async function readJsonFile<T>(path: string): Promise<T> {
-  const content = await readFile(path, 'utf-8');
-  return JSON.parse(content) as T;
-}
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 export async function* readJsonlFile(path: string): AsyncGenerator<unknown> {
   const stream = createReadStream(path, 'utf-8');
@@ -21,14 +18,68 @@ export async function* readJsonlFile(path: string): AsyncGenerator<unknown> {
   }
 }
 
-export async function listSessionFiles(claudeDir: string): Promise<string[]> {
-  const sessionsDir = join(claudeDir, 'sessions');
-  try {
-    const files = await readdir(sessionsDir);
-    return files.filter((f) => f.endsWith('.json')).map((f) => join(sessionsDir, f));
-  } catch {
-    return [];
+export interface DiscoveredSession {
+  sessionId: string;
+  filePath: string;
+  projectDir: string;
+  projectSlug: string;
+}
+
+export async function discoverSessions(claudeDir: string): Promise<DiscoveredSession[]> {
+  const projectDirs = await listProjectDirs(claudeDir);
+  const sessions: DiscoveredSession[] = [];
+
+  for (const dir of projectDirs) {
+    const slug = basename(dir);
+    const files = await readdir(dir);
+    for (const f of files) {
+      if (!f.endsWith('.jsonl')) continue;
+      const id = f.replace('.jsonl', '');
+      if (!UUID_RE.test(id)) continue;
+      sessions.push({ sessionId: id, filePath: join(dir, f), projectDir: dir, projectSlug: slug });
+    }
   }
+
+  return sessions;
+}
+
+export interface SessionInfo {
+  cwd: string;
+  entrypoint: string;
+  startedAt: number;
+  updatedAt: number;
+  title: string;
+}
+
+export async function readSessionInfo(filePath: string): Promise<SessionInfo> {
+  let cwd = '';
+  let entrypoint = '';
+  let startedAt = 0;
+  let updatedAt = 0;
+  let title = '';
+
+  for await (const entry of readJsonlFile(filePath)) {
+    const record = entry as Record<string, unknown>;
+
+    if (record.type === 'ai-title' && typeof record.aiTitle === 'string') {
+      title = record.aiTitle;
+    }
+
+    const ts = typeof record.timestamp === 'number' ? record.timestamp : 0;
+    if (ts > 0) {
+      if (startedAt === 0 || ts < startedAt) startedAt = ts;
+      if (ts > updatedAt) updatedAt = ts;
+    }
+
+    if (!cwd && typeof record.cwd === 'string') {
+      cwd = record.cwd;
+    }
+    if (!entrypoint && typeof record.entrypoint === 'string') {
+      entrypoint = record.entrypoint;
+    }
+  }
+
+  return { cwd, entrypoint, startedAt, updatedAt, title };
 }
 
 export async function listProjectDirs(claudeDir: string): Promise<string[]> {
@@ -54,14 +105,6 @@ export async function findConversationFile(
   }
 
   return null;
-}
-
-export async function readSessionMeta(path: string): Promise<SessionMeta | null> {
-  try {
-    return await readJsonFile<SessionMeta>(path);
-  } catch {
-    return null;
-  }
 }
 
 export async function* readHistory(claudeDir: string): AsyncGenerator<HistoryEntry> {

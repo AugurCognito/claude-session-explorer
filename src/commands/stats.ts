@@ -1,10 +1,5 @@
 import { formatTimestamp, writeJson } from '../output.js';
-import {
-  findConversationFile,
-  listSessionFiles,
-  readJsonlFile,
-  readSessionMeta,
-} from '../reader.js';
+import { discoverSessions, readJsonlFile, readSessionInfo } from '../reader.js';
 import type { GlobalOptions } from '../types.js';
 
 interface StatsOptions extends GlobalOptions {
@@ -57,40 +52,36 @@ async function scanConversationTokens(
 }
 
 export async function stats(opts: StatsOptions): Promise<void> {
-  const metaFiles = await listSessionFiles(opts.claudeDir);
+  const discovered = await discoverSessions(opts.claudeDir);
 
   if (opts.daily || opts.weekly) {
     const buckets = new Map<string, DayStats>();
 
-    for (const metaFile of metaFiles) {
-      const meta = await readSessionMeta(metaFile);
-      if (!meta) continue;
-      if (opts.project && !meta.cwd.startsWith(opts.project)) continue;
+    for (const s of discovered) {
+      const info = await readSessionInfo(s.filePath);
+      if (opts.project && !info.cwd.startsWith(opts.project)) continue;
 
-      const date = formatTimestamp(meta.startedAt).split(' ')[0] ?? '';
-      const key = opts.weekly ? weekKey(meta.startedAt) : date;
+      const date = formatTimestamp(info.startedAt).split(' ')[0] ?? '';
+      const key = opts.weekly ? weekKey(info.startedAt) : date;
 
       const existing = buckets.get(key) ?? { sessions: 0, inputTokens: 0, outputTokens: 0 };
       existing.sessions++;
 
-      const file = await findConversationFile(opts.claudeDir, meta.sessionId);
-      if (file) {
-        const scan = await scanConversationTokens(file);
-        existing.inputTokens += scan.input;
-        existing.outputTokens += scan.output;
-      }
+      const scan = await scanConversationTokens(s.filePath);
+      existing.inputTokens += scan.input;
+      existing.outputTokens += scan.output;
 
       buckets.set(key, existing);
     }
 
     const result = [...buckets.entries()]
       .sort(([a], [b]) => b.localeCompare(a))
-      .map(([date, s]) => ({
+      .map(([date, d]) => ({
         date,
-        sessions: s.sessions,
-        inputTokens: s.inputTokens,
-        outputTokens: s.outputTokens,
-        totalTokens: s.inputTokens + s.outputTokens,
+        sessions: d.sessions,
+        inputTokens: d.inputTokens,
+        outputTokens: d.outputTokens,
+        totalTokens: d.inputTokens + d.outputTokens,
       }));
 
     writeJson(result);
@@ -104,24 +95,20 @@ export async function stats(opts: StatsOptions): Promise<void> {
   const hourCounts = new Array<number>(24).fill(0);
   const toolCounts = new Map<string, number>();
 
-  for (const metaFile of metaFiles) {
-    const meta = await readSessionMeta(metaFile);
-    if (!meta) continue;
-    if (opts.project && !meta.cwd.startsWith(opts.project)) continue;
+  for (const s of discovered) {
+    const info = await readSessionInfo(s.filePath);
+    if (opts.project && !info.cwd.startsWith(opts.project)) continue;
 
     sessionCount++;
-    projectCounts.set(meta.cwd, (projectCounts.get(meta.cwd) ?? 0) + 1);
-    const hour = new Date(meta.startedAt).getHours();
+    projectCounts.set(info.cwd, (projectCounts.get(info.cwd) ?? 0) + 1);
+    const hour = new Date(info.startedAt).getHours();
     hourCounts[hour] = (hourCounts[hour] ?? 0) + 1;
 
-    const file = await findConversationFile(opts.claudeDir, meta.sessionId);
-    if (file) {
-      const scan = await scanConversationTokens(file);
-      totalInput += scan.input;
-      totalOutput += scan.output;
-      for (const [tool, count] of scan.tools) {
-        toolCounts.set(tool, (toolCounts.get(tool) ?? 0) + count);
-      }
+    const scan = await scanConversationTokens(s.filePath);
+    totalInput += scan.input;
+    totalOutput += scan.output;
+    for (const [tool, count] of scan.tools) {
+      toolCounts.set(tool, (toolCounts.get(tool) ?? 0) + count);
     }
   }
 

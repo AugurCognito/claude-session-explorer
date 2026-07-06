@@ -1,8 +1,6 @@
-import { readdir } from 'node:fs/promises';
-import { join } from 'node:path';
 import { formatDuration, formatTimestamp, writeJson, writeTable } from '../output.js';
-import { listProjectDirs, listSessionFiles, readJsonlFile, readSessionMeta } from '../reader.js';
-import type { GlobalOptions, SessionMeta } from '../types.js';
+import { discoverSessions, readSessionInfo } from '../reader.js';
+import type { GlobalOptions } from '../types.js';
 
 interface ListOptions extends GlobalOptions {
   project?: string;
@@ -30,90 +28,35 @@ interface SessionRow {
   durationMs: number;
 }
 
-function matchesFilters(meta: SessionMeta, opts: ListOptions): boolean {
-  if (opts.project && !meta.cwd.startsWith(opts.project)) return false;
-  if (opts.kind && meta.kind !== opts.kind) return false;
-  if (opts.entrypoint && meta.entrypoint !== opts.entrypoint) return false;
-  if (opts.since && meta.startedAt < new Date(opts.since).getTime()) return false;
-  if (opts.until && meta.startedAt > new Date(opts.until).getTime()) return false;
-  if (opts.today && meta.startedAt < todayStart()) return false;
-  if (opts.yesterday) {
-    const ys = yesterdayStart();
-    if (meta.startedAt < ys || meta.startedAt >= ys + 86400000) return false;
-  }
-  if (opts.thisWeek && meta.startedAt < weekStart()) return false;
-  return true;
-}
-
-function todayStart(): number {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d.getTime();
-}
-
-function yesterdayStart(): number {
-  return todayStart() - 86400000;
-}
-
-function weekStart(): number {
-  const now = new Date();
-  const d = new Date(now);
-  d.setDate(now.getDate() - now.getDay());
-  d.setHours(0, 0, 0, 0);
-  return d.getTime();
-}
-
-async function findTitle(
-  claudeDir: string,
-  sessionId: string,
-): Promise<{ title: string; durationMs: number }> {
-  let title = '';
-  let firstTs = 0;
-  let lastTs = 0;
-
-  const projectDirs = await listProjectDirs(claudeDir);
-  for (const dir of projectDirs) {
-    const files = await readdir(dir);
-    const match = files.find((f) => f.includes(sessionId) && f.endsWith('.jsonl'));
-    if (!match) continue;
-
-    for await (const entry of readJsonlFile(join(dir, match))) {
-      const record = entry as Record<string, unknown>;
-      if (record.type === 'ai-title') {
-        title = record.aiTitle as string;
-      }
-      const ts = record.timestamp as string | undefined;
-      if (ts) {
-        const ms = new Date(ts).getTime();
-        if (!firstTs || ms < firstTs) firstTs = ms;
-        if (ms > lastTs) lastTs = ms;
-      }
-    }
-    break;
-  }
-
-  return { title, durationMs: lastTs - firstTs };
-}
-
 export async function list(opts: ListOptions): Promise<void> {
-  const files = await listSessionFiles(opts.claudeDir);
+  const discovered = await discoverSessions(opts.claudeDir);
   const sessions: SessionRow[] = [];
 
-  for (const file of files) {
-    const meta = await readSessionMeta(file);
-    if (!meta || !matchesFilters(meta, opts)) continue;
+  for (const s of discovered) {
+    const info = await readSessionInfo(s.filePath);
 
-    const { title, durationMs } = await findTitle(opts.claudeDir, meta.sessionId);
+    if (opts.project && !info.cwd.startsWith(opts.project)) continue;
+    if (opts.entrypoint && info.entrypoint !== opts.entrypoint) continue;
+    if (opts.since && info.startedAt < new Date(opts.since).getTime()) continue;
+    if (opts.until && info.startedAt > new Date(opts.until).getTime()) continue;
+    if (opts.today && info.startedAt < todayStart()) continue;
+    if (opts.yesterday) {
+      const ys = yesterdayStart();
+      if (info.startedAt < ys || info.startedAt >= ys + 86400000) continue;
+    }
+    if (opts.thisWeek && info.startedAt < weekStart()) continue;
+
+    const durationMs = info.updatedAt - info.startedAt;
 
     sessions.push({
-      id: meta.sessionId,
-      title,
-      date: formatTimestamp(meta.startedAt),
-      project: meta.cwd,
+      id: s.sessionId,
+      title: info.title,
+      date: formatTimestamp(info.startedAt),
+      project: info.cwd,
       duration: durationMs > 0 ? formatDuration(durationMs) : '',
-      kind: meta.kind,
-      entrypoint: meta.entrypoint,
-      startedAt: meta.startedAt,
+      kind: '',
+      entrypoint: info.entrypoint,
+      startedAt: info.startedAt,
       durationMs,
     });
   }
@@ -135,4 +78,22 @@ export async function list(opts: ListOptions): Promise<void> {
   } else {
     writeJson(limited);
   }
+}
+
+function todayStart(): number {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+function yesterdayStart(): number {
+  return todayStart() - 86400000;
+}
+
+function weekStart(): number {
+  const now = new Date();
+  const d = new Date(now);
+  d.setDate(now.getDate() - now.getDay());
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
 }

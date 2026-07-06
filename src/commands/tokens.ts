@@ -2,11 +2,11 @@ import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { formatTimestamp, writeJson } from '../output.js';
 import {
+  discoverSessions,
   findConversationFile,
   listProjectDirs,
-  listSessionFiles,
   readJsonlFile,
-  readSessionMeta,
+  readSessionInfo,
 } from '../reader.js';
 import type { GlobalOptions } from '../types.js';
 
@@ -112,18 +112,14 @@ async function tokensByModel(opts: TokensOptions): Promise<void> {
 
 async function tokensDaily(opts: TokensOptions): Promise<void> {
   const dailyTotals = new Map<string, TokenBucket>();
-  const metaFiles = await listSessionFiles(opts.claudeDir);
+  const discovered = await discoverSessions(opts.claudeDir);
 
-  for (const metaFile of metaFiles) {
-    const meta = await readSessionMeta(metaFile);
-    if (!meta) continue;
-    if (opts.project && !meta.cwd.startsWith(opts.project)) continue;
+  for (const s of discovered) {
+    const info = await readSessionInfo(s.filePath);
+    if (opts.project && !info.cwd.startsWith(opts.project)) continue;
 
-    const file = await findConversationFile(opts.claudeDir, meta.sessionId);
-    if (!file) continue;
-
-    const dateKey = formatTimestamp(meta.startedAt).split(' ')[0] ?? '';
-    const turns = await sessionTokens(file);
+    const dateKey = formatTimestamp(info.startedAt).split(' ')[0] ?? '';
+    const turns = await sessionTokens(s.filePath);
     const existing = dailyTotals.get(dateKey) ?? newBucket();
     for (const t of turns) addTurnToBucket(existing, t);
     dailyTotals.set(dateKey, existing);
@@ -144,22 +140,19 @@ async function tokensDaily(opts: TokensOptions): Promise<void> {
 }
 
 async function tokensByProject(project: string, opts: TokensOptions): Promise<void> {
-  const metaFiles = await listSessionFiles(opts.claudeDir);
+  const discovered = await discoverSessions(opts.claudeDir);
   const summaries: Record<string, unknown>[] = [];
 
-  for (const metaFile of metaFiles) {
-    const meta = await readSessionMeta(metaFile);
-    if (!meta?.cwd.startsWith(project)) continue;
+  for (const s of discovered) {
+    const info = await readSessionInfo(s.filePath);
+    if (!info.cwd.startsWith(project)) continue;
 
-    const file = await findConversationFile(opts.claudeDir, meta.sessionId);
-    if (!file) continue;
-
-    const turns = await sessionTokens(file);
+    const turns = await sessionTokens(s.filePath);
     const b = newBucket();
     for (const t of turns) addTurnToBucket(b, t);
 
     summaries.push({
-      sessionId: meta.sessionId,
+      sessionId: s.sessionId,
       inputTokens: b.input,
       outputTokens: b.output,
       cacheReadTokens: b.cacheRead,
