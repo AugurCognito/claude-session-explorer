@@ -1,7 +1,7 @@
 import { readdir, stat } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { writeJson, writeTable } from '../output.js';
-import { listProjectDirs, readJsonlFile } from '../reader.js';
+import { aggregateUsage, listProjectDirs } from '../reader.js';
 import type { GlobalOptions, ProjectInfo } from '../types.js';
 
 interface ProjectsOptions extends GlobalOptions {
@@ -30,18 +30,9 @@ export async function projects(opts: ProjectsOptions): Promise<void> {
       if (ctimeMs < firstSession) firstSession = ctimeMs;
       if (mtimeMs > lastSession) lastSession = mtimeMs;
 
-      for await (const entry of readJsonlFile(filePath)) {
-        const record = entry as Record<string, unknown>;
-        if (record.type !== 'assistant') continue;
-        const message = record.message as Record<string, unknown> | undefined;
-        const usage = message?.usage as Record<string, number> | undefined;
-        if (usage) {
-          totalTokens +=
-            (usage.input_tokens ?? 0) +
-            (usage.output_tokens ?? 0) +
-            (usage.cache_read_input_tokens ?? 0) +
-            (usage.cache_creation_input_tokens ?? 0);
-        }
+      const usages = await aggregateUsage(filePath);
+      for (const u of usages) {
+        totalTokens += u.inputTokens + u.outputTokens + u.cacheReadTokens + u.cacheCreationTokens;
       }
     }
 

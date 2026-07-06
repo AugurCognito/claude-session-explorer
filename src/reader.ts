@@ -107,6 +107,56 @@ export async function findConversationFile(
   return null;
 }
 
+export interface DedupedUsage {
+  messageId: string;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheCreationTokens: number;
+  model: string;
+  toolNames: string[];
+}
+
+export async function aggregateUsage(filePath: string): Promise<DedupedUsage[]> {
+  const byId = new Map<string, DedupedUsage>();
+
+  for await (const entry of readJsonlFile(filePath)) {
+    const record = entry as Record<string, unknown>;
+    const message = record.message as Record<string, unknown> | undefined;
+    if (!message?.usage) continue;
+
+    const id =
+      (message.id as string | undefined) ?? (message.requestId as string | undefined) ?? '';
+    const usage = message.usage as Record<string, number>;
+
+    const tools: string[] = [];
+    if (Array.isArray(message.content)) {
+      for (const block of message.content as Record<string, unknown>[]) {
+        if (block.type === 'tool_use' && typeof block.name === 'string') {
+          tools.push(block.name);
+        }
+      }
+    }
+
+    const existing = byId.get(id);
+    if (existing) {
+      existing.toolNames.push(...tools);
+    } else {
+      byId.set(id, {
+        messageId: id,
+        inputTokens: usage.input_tokens ?? 0,
+        outputTokens: usage.output_tokens ?? 0,
+        cacheReadTokens: usage.cache_read_input_tokens ?? 0,
+        cacheCreationTokens: usage.cache_creation_input_tokens ?? 0,
+        model: (message.model as string) ?? 'unknown',
+        toolNames: tools,
+      });
+    }
+  }
+
+  return [...byId.values()];
+}
+
 export async function* readHistory(claudeDir: string): AsyncGenerator<HistoryEntry> {
   const historyPath = join(claudeDir, 'history.jsonl');
   try {

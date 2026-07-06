@@ -1,11 +1,8 @@
-import { readdir } from 'node:fs/promises';
-import { join } from 'node:path';
 import { formatTimestamp, writeJson } from '../output.js';
 import {
+  aggregateUsage,
   discoverSessions,
   findConversationFile,
-  listProjectDirs,
-  readJsonlFile,
   readSessionInfo,
 } from '../reader.js';
 import type { GlobalOptions } from '../types.js';
@@ -16,15 +13,6 @@ interface TokensOptions extends GlobalOptions {
   byModel?: boolean;
 }
 
-interface TurnTokens {
-  turnIndex: number;
-  inputTokens: number;
-  outputTokens: number;
-  cacheReadTokens: number;
-  cacheCreationTokens: number;
-  model: string;
-}
-
 interface TokenBucket {
   input: number;
   output: number;
@@ -32,49 +20,8 @@ interface TokenBucket {
   cacheCreation: number;
 }
 
-function extractUsage(record: Record<string, unknown>): TurnTokens | null {
-  const message = record.message as Record<string, unknown> | undefined;
-  if (!message) return null;
-
-  const usage = message.usage as Record<string, number> | undefined;
-  if (!usage) return null;
-
-  return {
-    turnIndex: 0,
-    inputTokens: usage.input_tokens ?? 0,
-    outputTokens: usage.output_tokens ?? 0,
-    cacheReadTokens: usage.cache_read_input_tokens ?? 0,
-    cacheCreationTokens: usage.cache_creation_input_tokens ?? 0,
-    model: (message.model as string) ?? 'unknown',
-  };
-}
-
-async function sessionTokens(filePath: string): Promise<TurnTokens[]> {
-  const turns: TurnTokens[] = [];
-  let turnIndex = 0;
-
-  for await (const entry of readJsonlFile(filePath)) {
-    const record = entry as Record<string, unknown>;
-    const usage = extractUsage(record);
-    if (usage) {
-      usage.turnIndex = turnIndex;
-      turns.push(usage);
-    }
-    turnIndex++;
-  }
-
-  return turns;
-}
-
 function newBucket(): TokenBucket {
   return { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
-}
-
-function addTurnToBucket(bucket: TokenBucket, t: TurnTokens): void {
-  bucket.input += t.inputTokens;
-  bucket.output += t.outputTokens;
-  bucket.cacheRead += t.cacheReadTokens;
-  bucket.cacheCreation += t.cacheCreationTokens;
 }
 
 function bucketTotal(b: TokenBucket): number {
@@ -83,18 +30,22 @@ function bucketTotal(b: TokenBucket): number {
 
 async function tokensByModel(opts: TokensOptions): Promise<void> {
   const modelTotals = new Map<string, TokenBucket>();
-  const projectDirs = await listProjectDirs(opts.claudeDir);
+  const discovered = await discoverSessions(opts.claudeDir);
 
-  for (const dir of projectDirs) {
-    if (opts.project && !dir.includes(opts.project.replaceAll('/', '-'))) continue;
-    const files = await readdir(dir);
-    for (const f of files.filter((x) => x.endsWith('.jsonl'))) {
-      const turns = await sessionTokens(join(dir, f));
-      for (const t of turns) {
-        const existing = modelTotals.get(t.model) ?? newBucket();
-        addTurnToBucket(existing, t);
-        modelTotals.set(t.model, existing);
-      }
+  for (const s of discovered) {
+    if (opts.project) {
+      const info = await readSessionInfo(s.filePath);
+      if (!info.cwd.startsWith(opts.project)) continue;
+    }
+
+    const usages = await aggregateUsage(s.filePath);
+    for (const u of usages) {
+      const existing = modelTotals.get(u.model) ?? newBucket();
+      existing.input += u.inputTokens;
+      existing.output += u.outputTokens;
+      existing.cacheRead += u.cacheReadTokens;
+      existing.cacheCreation += u.cacheCreationTokens;
+      modelTotals.set(u.model, existing);
     }
   }
 
@@ -119,9 +70,14 @@ async function tokensDaily(opts: TokensOptions): Promise<void> {
     if (opts.project && !info.cwd.startsWith(opts.project)) continue;
 
     const dateKey = formatTimestamp(info.startedAt).split(' ')[0] ?? '';
-    const turns = await sessionTokens(s.filePath);
+    const usages = await aggregateUsage(s.filePath);
     const existing = dailyTotals.get(dateKey) ?? newBucket();
-    for (const t of turns) addTurnToBucket(existing, t);
+    for (const u of usages) {
+      existing.input += u.inputTokens;
+      existing.output += u.outputTokens;
+      existing.cacheRead += u.cacheReadTokens;
+      existing.cacheCreation += u.cacheCreationTokens;
+    }
     dailyTotals.set(dateKey, existing);
   }
 
@@ -147,9 +103,14 @@ async function tokensByProject(project: string, opts: TokensOptions): Promise<vo
     const info = await readSessionInfo(s.filePath);
     if (!info.cwd.startsWith(project)) continue;
 
-    const turns = await sessionTokens(s.filePath);
+    const usages = await aggregateUsage(s.filePath);
     const b = newBucket();
-    for (const t of turns) addTurnToBucket(b, t);
+    for (const u of usages) {
+      b.input += u.inputTokens;
+      b.output += u.outputTokens;
+      b.cacheRead += u.cacheReadTokens;
+      b.cacheCreation += u.cacheCreationTokens;
+    }
 
     summaries.push({
       sessionId: s.sessionId,
@@ -171,7 +132,18 @@ export async function tokens(sessionId: string | undefined, opts: TokensOptions)
       process.stderr.write(`error: session not found: ${sessionId}\n`);
       process.exit(1);
     }
-    writeJson(await sessionTokens(file));
+
+    const usages = await aggregateUsage(file);
+    writeJson(
+      usages.map((u, i) => ({
+        turnIndex: i,
+        inputTokens: u.inputTokens,
+        outputTokens: u.outputTokens,
+        cacheReadTokens: u.cacheReadTokens,
+        cacheCreationTokens: u.cacheCreationTokens,
+        model: u.model,
+      })),
+    );
     return;
   }
 

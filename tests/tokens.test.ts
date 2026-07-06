@@ -41,8 +41,9 @@ describe('token aggregation', () => {
     const { stdout } = await exec('node', [CLI, 'stats', '--claude-dir', FIXTURE_DIR, '--json']);
     const result = JSON.parse(stdout) as { totalOutputTokens: number };
 
-    // Stats should report deduped output tokens, not the inflated sum
-    expect(result.totalOutputTokens).toBe(CORRECT_OUTPUT_TOKENS);
+    // Fixture has 2 sessions: aaaaaaaa (3500 output) + bbbbbbbb (600 output) = 4100
+    const ALL_SESSIONS_OUTPUT = CORRECT_OUTPUT_TOKENS + 600;
+    expect(result.totalOutputTokens).toBe(ALL_SESSIONS_OUTPUT);
     expect(result.totalOutputTokens).not.toBe(NAIVE_OUTPUT_SUM);
   });
 });

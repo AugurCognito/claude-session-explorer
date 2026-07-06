@@ -1,5 +1,5 @@
 import { formatTimestamp, writeJson } from '../output.js';
-import { discoverSessions, readJsonlFile, readSessionInfo } from '../reader.js';
+import { aggregateUsage, discoverSessions, readSessionInfo } from '../reader.js';
 import type { GlobalOptions } from '../types.js';
 
 interface StatsOptions extends GlobalOptions {
@@ -12,43 +12,6 @@ interface DayStats {
   sessions: number;
   inputTokens: number;
   outputTokens: number;
-}
-
-async function scanConversationTokens(
-  filePath: string,
-): Promise<{ input: number; output: number; tools: Map<string, number> }> {
-  let input = 0;
-  let output = 0;
-  const tools = new Map<string, number>();
-
-  for await (const entry of readJsonlFile(filePath)) {
-    const record = entry as Record<string, unknown>;
-    if (record.type !== 'assistant') continue;
-
-    const message = record.message as Record<string, unknown> | undefined;
-    if (!message) continue;
-
-    const usage = message.usage as Record<string, number> | undefined;
-    if (usage) {
-      input +=
-        (usage.input_tokens ?? 0) +
-        (usage.cache_read_input_tokens ?? 0) +
-        (usage.cache_creation_input_tokens ?? 0);
-      output += usage.output_tokens ?? 0;
-    }
-
-    const content = message.content;
-    if (Array.isArray(content)) {
-      for (const block of content as Record<string, unknown>[]) {
-        if (block.type === 'tool_use') {
-          const name = block.name as string;
-          tools.set(name, (tools.get(name) ?? 0) + 1);
-        }
-      }
-    }
-  }
-
-  return { input, output, tools };
 }
 
 export async function stats(opts: StatsOptions): Promise<void> {
@@ -67,9 +30,11 @@ export async function stats(opts: StatsOptions): Promise<void> {
       const existing = buckets.get(key) ?? { sessions: 0, inputTokens: 0, outputTokens: 0 };
       existing.sessions++;
 
-      const scan = await scanConversationTokens(s.filePath);
-      existing.inputTokens += scan.input;
-      existing.outputTokens += scan.output;
+      const usages = await aggregateUsage(s.filePath);
+      for (const u of usages) {
+        existing.inputTokens += u.inputTokens + u.cacheReadTokens + u.cacheCreationTokens;
+        existing.outputTokens += u.outputTokens;
+      }
 
       buckets.set(key, existing);
     }
@@ -104,11 +69,13 @@ export async function stats(opts: StatsOptions): Promise<void> {
     const hour = new Date(info.startedAt).getHours();
     hourCounts[hour] = (hourCounts[hour] ?? 0) + 1;
 
-    const scan = await scanConversationTokens(s.filePath);
-    totalInput += scan.input;
-    totalOutput += scan.output;
-    for (const [tool, count] of scan.tools) {
-      toolCounts.set(tool, (toolCounts.get(tool) ?? 0) + count);
+    const usages = await aggregateUsage(s.filePath);
+    for (const u of usages) {
+      totalInput += u.inputTokens + u.cacheReadTokens + u.cacheCreationTokens;
+      totalOutput += u.outputTokens;
+      for (const tool of u.toolNames) {
+        toolCounts.set(tool, (toolCounts.get(tool) ?? 0) + 1);
+      }
     }
   }
 

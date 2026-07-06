@@ -90,12 +90,16 @@ function showFiles(entries: Entry[]): void {
 }
 
 function showTokens(entries: Entry[]): void {
-  const turns: Entry[] = [];
+  const seen = new Map<string, Entry>();
   for (const entry of entries) {
     const msg = entry.message as Entry | undefined;
     const usage = msg?.usage as Record<string, number> | undefined;
     if (!usage) continue;
-    turns.push({
+
+    const id = (msg?.id as string | undefined) ?? (msg?.requestId as string | undefined) ?? '';
+    if (seen.has(id)) continue;
+
+    seen.set(id, {
       timestamp: entry.timestamp,
       model: msg?.model ?? 'unknown',
       inputTokens: usage.input_tokens ?? 0,
@@ -104,7 +108,7 @@ function showTokens(entries: Entry[]): void {
       cacheCreationTokens: usage.cache_creation_input_tokens ?? 0,
     });
   }
-  writeJson(turns);
+  writeJson([...seen.values()]);
 }
 
 function showSummary(sessionId: string, file: string, entries: Entry[]): void {
@@ -116,6 +120,7 @@ function showSummary(sessionId: string, file: string, entries: Entry[]): void {
   let totalInput = 0;
   let totalOutput = 0;
   let model = '';
+  const seenIds = new Set<string>();
 
   for (const entry of entries) {
     if (entry.type === 'ai-title') title = entry.aiTitle as string;
@@ -131,13 +136,17 @@ function showSummary(sessionId: string, file: string, entries: Entry[]): void {
 
     const msg = entry.message as Entry | undefined;
     if (msg?.usage) {
-      const usage = msg.usage as Record<string, number>;
-      totalInput +=
-        (usage.input_tokens ?? 0) +
-        (usage.cache_read_input_tokens ?? 0) +
-        (usage.cache_creation_input_tokens ?? 0);
-      totalOutput += usage.output_tokens ?? 0;
-      if (!model && msg.model) model = msg.model as string;
+      const msgId = (msg.id as string | undefined) ?? (msg.requestId as string | undefined) ?? '';
+      if (!seenIds.has(msgId)) {
+        seenIds.add(msgId);
+        const usage = msg.usage as Record<string, number>;
+        totalInput +=
+          (usage.input_tokens ?? 0) +
+          (usage.cache_read_input_tokens ?? 0) +
+          (usage.cache_creation_input_tokens ?? 0);
+        totalOutput += usage.output_tokens ?? 0;
+        if (!model && msg.model) model = msg.model as string;
+      }
     }
   }
 
