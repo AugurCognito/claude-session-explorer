@@ -1,4 +1,8 @@
 node_modules/
 dist/
+coverage/
+scratch/
 .cse/
 .claude/
+.env
+.env.*

@@ -19,14 +19,16 @@
     "dev": "tsx src/cli.ts",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
+    "lint:slop": "node_modules/@ast-grep/cli/ast-grep scan --error",
+    "lint:arch": "depcruise src",
     "format": "biome format --write .",
     "typecheck": "tsc --noEmit",
-    "check": "biome ci . && pnpm typecheck",
-    "prepare": "simple-git-hooks"
-  },
-  "simple-git-hooks": {
-    "pre-commit": "pnpm exec biome check --staged --no-errors-on-unmatched",
-    "pre-push": "pnpm typecheck"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "knip": "knip",
+    "verify": "pnpm typecheck && pnpm lint && pnpm lint:slop && pnpm lint:arch && pnpm test && pnpm knip && pnpm build",
+    "prepare": "lefthook install"
   },
   "repository": {
     "type": "git",
@@ -34,12 +36,19 @@
   },
   "license": "MIT",
   "devDependencies": {
+    "@ast-grep/cli": "^0.44.1",
     "@biomejs/biome": "^2.4.4",
+    "@commitlint/cli": "^21.2.0",
+    "@commitlint/config-conventional": "^21.2.0",
     "@types/node": "^22.0.0",
-    "simple-git-hooks": "^2.12.1",
+    "@vitest/coverage-v8": "^4.1.10",
+    "dependency-cruiser": "^18.0.0",
+    "knip": "^6.24.0",
+    "lefthook": "^2.1.9",
     "tsup": "^8.5.1",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10"
   },
   "dependencies": {
     "chalk": "^5.6.2",

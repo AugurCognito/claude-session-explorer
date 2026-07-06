@@ -1,0 +1,8 @@
+id: no-catch-log-continue
+language: TypeScript
+severity: warning
+message: "Catch block only logs — either rethrow, return a typed error, or remove the try/catch."
+rule:
+  pattern: console.log($$$)
+  inside:
+    kind: catch_clause

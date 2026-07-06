@@ -1,0 +1,7 @@
+id: no-narrator-comments
+language: TypeScript
+severity: warning
+message: "Narrator comment — comments should state constraints the code cannot express, not narrate what it does."
+rule:
+  kind: comment
+  regex: "^\\s*/(/|\\*)\\s*(First,|Now,|Next,|Then,|Finally,|Step \\d|Here we|Let's|We now|We then|We first)"

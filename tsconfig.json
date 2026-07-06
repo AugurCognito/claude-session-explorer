@@ -4,6 +4,7 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "strict": true,
+    "noEmit": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
     "noFallthroughCasesInSwitch": true,
@@ -11,10 +12,8 @@
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
     "resolveJsonModule": true,
-    "skipLibCheck": true,
-    "outDir": "dist",
-    "rootDir": "src"
+    "skipLibCheck": true
   },
-  "include": ["src"],
+  "include": ["src", "tests", "*.config.ts"],
   "exclude": ["node_modules", "dist"]
 }

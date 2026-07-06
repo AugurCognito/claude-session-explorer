@@ -1,0 +1,5 @@
+{"type":"last-prompt","leafUuid":"leaf-099","sessionId":"cccccccc-1111-2222-3333-000000000003"}
+{"type":"mode","mode":"normal","sessionId":"cccccccc-1111-2222-3333-000000000003"}
+{"parentUuid":"root","isSidechain":false,"type":"user","message":{"role":"user","content":"Do something"},"uuid":"u-099","timestamp":1700200000000,"promptSource":"user","userType":"external","entrypoint":"cli","cwd":"/Users/x/myapp","sessionId":"cccccccc-1111-2222-3333-000000000003","version":"1.0.0","gitBranch":"main"}
+{"parentUuid":"u-099","isSidechain":false,"type":"assistant","uuid":"a-099","timestamp":1700200001000,"message":{"id":"msg-099","type":"message","role":"assistant","content":[{"type":"text","text":"Here is the result"}],"model":"claude-sonnet-4-20250514","usage":{"input_tokens":100,"output_tokens":200,"cache_read_input_tokens":10,"cache_creation_input_tokens":5}},"userType":"external","entrypoint":"cli","cwd":"/Users/x/myapp","sessionId":"cccccccc-1111-2222-3333-000000000003","version":"1.0.0","gitBranch":"main"}
+{"parentUuid":"a-099","isSidechain":false,"type":"user","message":{"role":"user","content":"Continue"},"uuid":"u-100","timestamp":1700200002000,"pro

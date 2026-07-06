@@ -18,16 +18,6 @@ export function writeTable(headers: string[], rows: string[][]): void {
   process.stdout.write(`${table.toString()}\n`);
 }
 
-export function writeError(message: string): void {
-  process.stderr.write(chalk.red(`error: ${message}\n`));
-}
-
-export function writeVerbose(message: string, verbose: boolean): void {
-  if (verbose) {
-    process.stderr.write(chalk.dim(`[verbose] ${message}\n`));
-  }
-}
-
 export function formatTimestamp(ms: number): string {
   return new Date(ms)
     .toISOString()
@@ -43,10 +33,4 @@ export function formatDuration(ms: number): string {
   if (minutes < 60) return `${minutes}m ${remaining}s`;
   const hours = Math.floor(minutes / 60);
   return `${hours}h ${minutes % 60}m`;
-}
-
-export function formatTokens(count: number): string {
-  if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M`;
-  if (count >= 1_000) return `${(count / 1_000).toFixed(1)}k`;
-  return String(count);
 }

@@ -1,0 +1,11 @@
+{
+  "pid": 12345,
+  "sessionId": "aaaaaaaa-1111-2222-3333-000000000001",
+  "cwd": "/Users/x/myapp",
+  "startedAt": 1700000000000,
+  "version": "1.0.0",
+  "kind": "interactive",
+  "entrypoint": "cli",
+  "status": "completed",
+  "updatedAt": 1700000006000
+}

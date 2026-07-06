@@ -1,0 +1,12 @@
+id: no-default-fallback-catch
+language: TypeScript
+severity: warning
+message: "Catch block returns a silent default — failures should be loud, not hidden behind fallback values."
+rule:
+  any:
+    - pattern: return null
+    - pattern: return undefined
+    - pattern: "return []"
+    - pattern: "return {}"
+  inside:
+    kind: catch_clause
